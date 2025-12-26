@@ -1,320 +1,283 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-CN">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Interactive Christmas Tree</title>
-  <style>
-    /* 基础样式重置 */
-    body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background-color: #050a07; }
-    #root { width: 100%; height: 100%; }
-    
-    /* 加载提示 */
-    #loader {
-      position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-      color: #C1E1C1; font-family: sans-serif; letter-spacing: 2px;
-      animation: pulse 1.5s infinite; pointer-events: none;
-    }
-    @keyframes pulse { 0% { opacity: 0.5; } 50% { opacity: 1; } 100% { opacity: 0.5; } }
-    
-    /* 交互提示 UI */
-    #ui-guide {
-      position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%);
-      color: #C1E1C1; opacity: 0.6; font-family: 'Courier New', sans-serif;
-      font-size: 12px; letter-spacing: 3px; pointer-events: none; user-select: none;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>High-Fidelity Xmas Tree - Strawberry Edition</title>
+    <style>
+        body { margin: 0; background: #010805; overflow: hidden; font-family: -apple-system, sans-serif; }
+        #root { width: 100vw; height: 100vh; }
+        .overlay {
+            position: absolute; top: 8%; width: 100%; text-align: center;
+            pointer-events: none; z-index: 10;
+        }
+        .overlay h1 { color: #FFFACD; text-shadow: 0 0 20px rgba(255,250,205,0.8); margin: 0; font-size: 28px; min-height: 1.2em; }
+        .overlay p { color: white; opacity: 0.6; letter-spacing: 5px; font-size: 12px; margin-top: 10px; }
+        .hint {
+            position: absolute; bottom: 30px; width: 100%; text-align: center;
+            color: #C1E1C1; opacity: 0.5; font-size: 11px; letter-spacing: 2px; pointer-events: none;
+        }
+    </style>
 
-  <script type="importmap">
-  {
-    "imports": {
-      "react": "https://esm.sh/react@18.2.0",
-      "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
-      "three": "https://esm.sh/three@0.160.0",
-      "@react-three/fiber": "https://esm.sh/@react-three/fiber@8.15.14?external=react,react-dom,three",
-      "@react-three/drei": "https://esm.sh/@react-three/drei@9.96.1?external=react,react-dom,three,@react-three/fiber",
-      "@react-three/postprocessing": "https://esm.sh/@react-three/postprocessing@2.16.0?external=react,react-dom,three,@react-three/fiber",
-      "uuid": "https://esm.sh/uuid@9.0.1"
+    <script type="importmap">
+    {
+        "imports": {
+            "react": "https://esm.sh/react@18.2.0",
+            "react-dom": "https://esm.sh/react-dom@18.2.0",
+            "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
+            "react/jsx-runtime": "https://esm.sh/react@18.2.0/jsx-runtime",
+            "three": "https://esm.sh/three@0.160.0",
+            "@react-three/fiber": "https://esm.sh/@react-three/fiber@8.15.11?external=react,react-dom,three",
+            "@react-three/drei": "https://esm.sh/@react-three/drei@9.88.15?external=react,react-dom,three,@react-three/fiber",
+            "@react-three/postprocessing": "https://esm.sh/@react-three/postprocessing@2.15.11?external=react,react-dom,three,@react-three/fiber"
+        }
     }
-  }
-  </script>
-
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    </script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 </head>
 <body>
-  <div id="loader">LOADING CHRISTMAS...</div>
-  <div id="root"></div>
-  <div id="ui-guide">TAP SCREEN TO EXPLODE / ASSEMBLE</div>
+    <div class="overlay">
+        <h1 id="greeting"></h1>
+        <p>MERRY CHRISTMAS</p>
+    </div>
+    <div id="root"></div>
+    <div class="hint">点击触发粒子爆发 • 拖拽旋转视角</div>
 
-  <script type="text/babel" data-type="module">
-    import React, { useState, useMemo, useRef, useEffect } from 'react';
-    import { createRoot } from 'react-dom/client';
-    import * as THREE from 'three';
-    import { Canvas, useFrame } from '@react-three/fiber';
-    import { Text, OrbitControls, PerspectiveCamera, Environment, Float, Stars } from '@react-three/drei';
-    import { EffectComposer, Bloom, Vignette } from '@react-three/postprocessing';
+    <script type="text/babel" data-type="module">
+        import React, { useState, useMemo, useRef, useEffect } from 'react';
+        import { createRoot } from 'react-dom/client';
+        import * as THREE from 'three';
+        import { Canvas, useFrame } from '@react-three/fiber';
+        import { Float, Stars, OrbitControls, PerspectiveCamera } from '@react-three/drei';
+        import { EffectComposer, Bloom, Vignette, Noise } from '@react-three/postprocessing';
 
-    // --- 色板配置 ---
-    const PALETTE = {
-      green: '#C1E1C1',  // 浅绿 Sage
-      pink: '#FADADD',   // 淡粉
-      gold: '#FFFACD',   // 柠檬绸色
-      accent: '#FFB7B2', // 强调色
-      bg: '#050a07'      // 背景
-    };
+        const PALETTE = {
+            trunk: '#3d2b1f',
+            leafDark: '#0a2910',
+            leafLight: '#165B33',
+            strawberryRed: '#ff0800',
+            strawberryLeaf: '#2d5a27',
+            gold: '#FFD700',
+            silver: '#E5E4E2',
+            xmasRed: '#D42426',
+            pink: '#FFB7B2',
+            bg: '#010805'
+        };
 
-    // --- 简单的缓动函数 (替代外部数学库以减少依赖) ---
-    const damp = (current, target, smooth, delta) => {
-      return THREE.MathUtils.lerp(current, target, 1 - Math.exp(-smooth * delta));
-    };
+        // 打字机
+        const Typewriter = () => {
+            useEffect(() => {
+                const text = "小羊同学，圣诞节快乐！爱你一万零一遍";
+                let i = 0;
+                const interval = setInterval(() => {
+                    const el = document.getElementById('greeting');
+                    if(el) el.innerText = text.slice(0, i);
+                    i++;
+                    if (i > text.length) clearInterval(interval);
+                }, 150);
+                return () => clearInterval(interval);
+            }, []);
+            return null;
+        };
 
-    // --- 核心算法：生成圣诞树数据 ---
-    const generateTreeData = (count, type) => {
-      const data = [];
-      for (let i = 0; i < count; i++) {
-        const y = Math.pow(Math.random(), 0.9) * 10; 
-        const radius = (10 - y) * 0.45; 
-        const angle = i * 0.5 + Math.random() * Math.PI * 2;
-        
-        const r = type === 'foliage' ? Math.sqrt(Math.random()) * radius : radius;
-        const x = Math.cos(angle) * r;
-        const z = Math.sin(angle) * r;
+        // 高级草莓组件
+        const Strawberry = ({ position }) => {
+            const seedCount = 60;
+            const seeds = useMemo(() => {
+                const positions = [];
+                for (let i = 0; i < seedCount; i++) {
+                    const phi = Math.acos(-1 + (2 * i) / seedCount);
+                    const theta = Math.sqrt(seedCount * Math.PI) * phi;
+                    positions.push([
+                        0.38 * Math.cos(theta) * Math.sin(phi),
+                        0.45 * Math.sin(theta) * Math.sin(phi) - 0.1,
+                        0.38 * Math.cos(phi)
+                    ]);
+                }
+                return positions;
+            }, []);
 
-        data.push({
-          pos: new THREE.Vector3(x, y - 5, z),
-          rot: new THREE.Euler(Math.random()*3, Math.random()*3, 0),
-          scale: Math.random() * 0.5 + 0.5,
-          // 预计算爆炸方向
-          explodeDir: new THREE.Vector3(x, y - 5, z).normalize().multiplyScalar(Math.random() * 10 + 5)
-        });
-      }
-      return data;
-    };
+            return (
+                <group position={position}>
+                    {/* 草莓果实 */}
+                    <mesh castShadow>
+                        <sphereGeometry args={[0.5, 32, 32]} />
+                        <meshStandardMaterial color={PALETTE.strawberryRed} roughness={0.3} metalness={0.1} />
+                    </mesh>
+                    {/* 草莓种子 */}
+                    {seeds.map((pos, i) => (
+                        <mesh key={i} position={pos}>
+                            <sphereGeometry args={[0.015, 8, 8]} />
+                            <meshBasicMaterial color="#111" />
+                        </mesh>
+                    ))}
+                    {/* 草莓叶子 */}
+                    <group position={[0, 0.4, 0]}>
+                        {[0, 1, 2, 3, 4, 5].map((i) => (
+                            <mesh key={i} rotation={[0, (i * Math.PI * 2) / 6, 0.8]}>
+                                <coneGeometry args={[0.15, 0.5, 3]} />
+                                <meshStandardMaterial color={PALETTE.strawberryLeaf} />
+                            </mesh>
+                        ))}
+                    </group>
+                    {/* 顶部光晕 */}
+                    <pointLight intensity={15} distance={5} color={PALETTE.strawberryRed} />
+                </group>
+            );
+        };
 
-    // --- 组件：光晕针叶 (Shader) ---
-    const Foliage = ({ isExploded }) => {
-      const count = 3500;
-      const pointsRef = useRef();
+        // 层次感树体（多层松针效果）
+        const LayeredTree = ({ isExploded }) => {
+            const layers = 5;
+            const groupRef = useRef();
 
-      const { positions, randoms } = useMemo(() => {
-        const data = generateTreeData(count, 'foliage');
-        const pos = new Float32Array(count * 3);
-        const rnd = new Float32Array(count * 3);
-        data.forEach((d, i) => {
-          pos.set([d.pos.x, d.pos.y, d.pos.z], i * 3);
-          rnd.set([d.explodeDir.x, d.explodeDir.y, d.explodeDir.z], i * 3);
-        });
-        return { positions: pos, randoms: rnd };
-      }, []);
+            useFrame((state) => {
+                if (isExploded) {
+                    groupRef.current.position.y = THREE.MathUtils.lerp(groupRef.current.position.y, -20, 0.05);
+                    groupRef.current.scale.setScalar(THREE.MathUtils.lerp(groupRef.current.scale.x, 0, 0.05));
+                } else {
+                    groupRef.current.position.y = THREE.MathUtils.lerp(groupRef.current.position.y, -4, 0.1);
+                    groupRef.current.scale.setScalar(THREE.MathUtils.lerp(groupRef.current.scale.x, 1, 0.1));
+                }
+            });
 
-      const shaderArgs = useMemo(() => ({
-        uniforms: {
-          uTime: { value: 0 },
-          uExplosion: { value: 0 },
-          uColor: { value: new THREE.Color(PALETTE.green) },
-          uColor2: { value: new THREE.Color(PALETTE.pink) }
-        },
-        vertexShader: `
-          uniform float uTime;
-          uniform float uExplosion;
-          attribute vec3 aRandom; // 爆炸速度向量
-          varying vec3 vColor;
-          uniform vec3 uColor;
-          uniform vec3 uColor2;
+            return (
+                <group ref={groupRef} position={[0, -4, 0]}>
+                    {/* 树干 */}
+                    <mesh position={[0, 0.5, 0]}>
+                        <cylinderGeometry args={[0.3, 0.5, 2, 12]} />
+                        <meshStandardMaterial color={PALETTE.trunk} roughness={1} />
+                    </mesh>
+                    {/* 树层 */}
+                    {[...Array(layers)].map((_, i) => (
+                        <mesh key={i} position={[0, i * 1.8 + 1.5, 0]}>
+                            <coneGeometry args={[(layers - i) * 1.2, 2.5, 8]} />
+                            <meshStandardMaterial 
+                                color={i % 2 === 0 ? PALETTE.leafDark : PALETTE.leafLight} 
+                                flatShading={true}
+                                roughness={0.8}
+                            />
+                        </mesh>
+                    ))}
+                </group>
+            );
+        };
 
-          void main() {
-            vec3 pos = position;
-            // 呼吸
-            float breath = sin(uTime * 1.5 + position.y) * 0.05;
-            // 爆炸插值
-            vec3 target = position + aRandom * 1.5; 
-            pos = mix(pos + vec3(0, breath, 0), target, uExplosion);
+        // 雪花
+        const Snow = ({ count = 1000 }) => {
+            const mesh = useRef();
+            const particles = useMemo(() => {
+                const pos = new Float32Array(count * 3);
+                for (let i = 0; i < count; i++) {
+                    pos.set([(Math.random()-0.5)*30, Math.random()*25, (Math.random()-0.5)*30], i * 3);
+                }
+                return pos;
+            }, [count]);
 
-            vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
-            gl_Position = projectionMatrix * mvPosition;
-            gl_PointSize = (120.0 / -mvPosition.z) * (1.0 - uExplosion * 0.6);
-            
-            // 颜色混合
-            float h = (position.y + 5.0) / 10.0;
-            vColor = mix(uColor, uColor2, h * 0.4 + uExplosion * 0.5);
-          }
-        `,
-        fragmentShader: `
-          varying vec3 vColor;
-          void main() {
-            float r = distance(gl_PointCoord, vec2(0.5));
-            if (r > 0.5) discard;
-            float glow = 1.0 - (r * 2.0);
-            glow = pow(glow, 2.0);
-            gl_FragColor = vec4(vColor, glow);
-          }
-        `,
-        transparent: true, depthWrite: false, blending: THREE.AdditiveBlending
-      }), []);
+            useFrame(() => {
+                const positions = mesh.current.geometry.attributes.position.array;
+                for (let i = 0; i < count; i++) {
+                    positions[i * 3 + 1] -= 0.03;
+                    if (positions[i * 3 + 1] < -5) positions[i * 3 + 1] = 20;
+                }
+                mesh.current.geometry.attributes.position.needsUpdate = true;
+            });
 
-      useFrame((state, delta) => {
-        if(pointsRef.current) {
-          pointsRef.current.material.uniforms.uTime.value = state.clock.elapsedTime;
-          // 手动缓动 uExplosion uniform
-          const current = pointsRef.current.material.uniforms.uExplosion.value;
-          const target = isExploded ? 1 : 0;
-          pointsRef.current.material.uniforms.uExplosion.value = damp(current, target, 2, delta);
-        }
-      });
+            return (
+                <points ref={mesh}>
+                    <bufferGeometry>
+                        <bufferAttribute attach="attributes-position" count={count} array={particles} itemSize={3} />
+                    </bufferGeometry>
+                    <pointsMaterial size={0.06} color="#ffffff" transparent opacity={0.6} />
+                </points>
+            );
+        };
 
-      return (
-        <points ref={pointsRef}>
-          <bufferGeometry>
-            <bufferAttribute attach="attributes-position" count={count} array={positions} itemSize={3} />
-            <bufferAttribute attach="attributes-aRandom" count={count} array={randoms} itemSize={3} />
-          </bufferGeometry>
-          <shaderMaterial attach="material" {...shaderArgs} />
-        </points>
-      );
-    };
+        // 装饰球 (爆炸逻辑保留)
+        const Orbs = ({ isExploded }) => {
+            const meshRef = useRef();
+            const dummy = new THREE.Object3D();
+            const count = 40;
+            const colors = [PALETTE.gold, PALETTE.silver, PALETTE.xmasRed, '#00A86B'];
 
-    // --- 组件：物理装饰物 ---
-    const Ornaments = ({ isExploded, type, count, color, scale = 1 }) => {
-      const meshRef = useRef();
-      const dummy = new THREE.Object3D();
-      
-      // 几何体选择
-      const geometry = useMemo(() => {
-        if (type === 'box') return new THREE.BoxGeometry(0.25, 0.25, 0.25);
-        if (type === 'rabbit') return new THREE.IcosahedronGeometry(0.2, 1); // 抽象兔子
-        return new THREE.SphereGeometry(0.12, 16, 16);
-      }, [type]);
+            const data = useMemo(() => {
+                return Array.from({ length: count }, () => {
+                    const y = Math.random() * 8 - 2;
+                    const r = (8 - y) * 0.35;
+                    const a = Math.random() * Math.PI * 2;
+                    const pos = new THREE.Vector3(Math.cos(a) * r, y, Math.sin(a) * r);
+                    return {
+                        base: pos.clone(),
+                        current: pos.clone(),
+                        vel: pos.clone().normalize().multiplyScalar(Math.random() * 12 + 8),
+                        color: new THREE.Color(colors[Math.floor(Math.random() * colors.length)])
+                    };
+                });
+            }, []);
 
-      // 物理状态数据
-      const particles = useMemo(() => {
-        const data = generateTreeData(count, 'ornament');
-        return data.map(d => ({
-          targetPos: d.pos,
-          targetRot: d.rot,
-          currentPos: d.pos.clone(),
-          currentRot: d.rot.clone(),
-          // 初始随机速度 (模拟物理)
-          velocity: d.explodeDir.clone().add(new THREE.Vector3((Math.random()-0.5), Math.random(), (Math.random()-0.5))),
-          angularVel: new THREE.Euler(Math.random(), Math.random(), Math.random()),
-          scale: d.scale * scale
-        }));
-      }, [count, scale]);
+            useFrame((state, delta) => {
+                data.forEach((o, i) => {
+                    if (isExploded) {
+                        o.current.addScaledVector(o.vel, delta);
+                    } else {
+                        o.current.lerp(o.base, 0.1);
+                    }
+                    dummy.position.copy(o.current);
+                    dummy.scale.setScalar(0.15);
+                    dummy.updateMatrix();
+                    meshRef.current.setMatrixAt(i, dummy.matrix);
+                    meshRef.current.setColorAt(i, o.color);
+                });
+                meshRef.current.instanceMatrix.needsUpdate = true;
+                meshRef.current.instanceColor.needsUpdate = true;
+            });
 
-      useFrame((_, delta) => {
-        if(!meshRef.current) return;
-        
-        particles.forEach((p, i) => {
-          if (isExploded) {
-            // 爆炸：物理模拟
-            p.currentPos.add(p.velocity.clone().multiplyScalar(delta));
-            p.currentRot.x += p.angularVel.x * delta;
-            p.currentRot.y += p.angularVel.y * delta;
-            
-            // 阻尼
-            p.velocity.multiplyScalar(0.96); 
-          } else {
-            // 重组：弹簧吸附
-            p.currentPos.x = damp(p.currentPos.x, p.targetPos.x, 3, delta);
-            p.currentPos.y = damp(p.currentPos.y, p.targetPos.y, 3, delta);
-            p.currentPos.z = damp(p.currentPos.z, p.targetPos.z, 3, delta);
-            
-            // 简单的旋转复位
-            p.currentRot.x = damp(p.currentRot.x, p.targetRot.x, 3, delta);
-            p.currentRot.y = damp(p.currentRot.y, p.targetRot.y, 3, delta);
-            p.currentRot.z = damp(p.currentRot.z, p.targetRot.z, 3, delta);
-            
-            // 蓄力：当物体回到原位时，重置其爆炸速度，保证下次炸开有力
-            if (p.currentPos.distanceTo(p.targetPos) < 0.5) {
-               p.velocity.lerp(p.targetPos.clone().normalize().multiplyScalar(10), delta);
-            }
-          }
+            return (
+                <instancedMesh ref={meshRef} args={[new THREE.SphereGeometry(1, 24, 24), null, count]}>
+                    <meshStandardMaterial metalness={0.9} roughness={0.1} />
+                </instancedMesh>
+            );
+        };
 
-          dummy.position.copy(p.currentPos);
-          dummy.rotation.copy(p.currentRot);
-          dummy.scale.setScalar(p.scale);
-          dummy.updateMatrix();
-          meshRef.current.setMatrixAt(i, dummy.matrix);
-        });
-        meshRef.current.instanceMatrix.needsUpdate = true;
-      });
+        const App = () => {
+            const [exploded, setExploded] = useState(false);
 
-      return (
-        <instancedMesh ref={meshRef} args={[geometry, null, count]}>
-           {type === 'rabbit' ? (
-             <meshStandardMaterial color={color} emissive={color} emissiveIntensity={0.6} wireframe={true} />
-           ) : (
-             <meshStandardMaterial color={color} roughness={0.3} metalness={0.8} emissive={color} emissiveIntensity={0.2} />
-           )}
-        </instancedMesh>
-      );
-    };
+            return (
+                <Canvas onClick={() => setExploded(!exploded)} shadows>
+                    <Typewriter />
+                    <PerspectiveCamera makeDefault position={[0, 2, 15]} fov={45} />
+                    <OrbitControls enablePan={false} autoRotate={!exploded} autoRotateSpeed={0.5} minDistance={8} maxDistance={22} />
+                    
+                    <color attach="background" args={[PALETTE.bg]} />
+                    <ambientLight intensity={0.4} />
+                    <spotLight position={[10, 10, 10]} intensity={10} angle={0.3} penumbra={1} castShadow />
+                    <pointLight position={[-5, 5, -5]} intensity={5} color={PALETTE.pink} />
 
-    // --- 主场景 ---
-    const Scene = () => {
-      const [exploded, setExploded] = useState(false);
+                    <Stars radius={100} depth={50} count={5000} factor={4} saturation={0} fade />
+                    <Snow count={1000} />
 
-      // 去除加载动画
-      useEffect(() => {
-        const loader = document.getElementById('loader');
-        if(loader) loader.style.display = 'none';
-      }, []);
+                    {/* 主树体 */}
+                    <LayeredTree isExploded={exploded} />
+                    
+                    {/* 装饰物 */}
+                    <Orbs isExploded={exploded} />
 
-      return (
-        <>
-          <PerspectiveCamera makeDefault position={[0, 0, 14]} fov={45} />
-          <OrbitControls enablePan={false} autoRotate={!exploded} autoRotateSpeed={0.8} minDistance={5} maxDistance={20} />
-          
-          {/* 灯光 */}
-          <ambientLight intensity={0.2} color={PALETTE.green} />
-          <pointLight position={[10, 10, 10]} intensity={20} color={PALETTE.pink} />
-          <spotLight position={[0, 15, 0]} angle={0.5} intensity={50} color="white" />
+                    {/* 顶部漂浮草莓 */}
+                    <Float speed={2} rotationIntensity={1.5} floatIntensity={2}>
+                        <Strawberry position={[0, 6.5, 0]} />
+                    </Float>
 
-          {/* 交互区域 */}
-          <group onClick={() => setExploded(!exploded)}>
-            <Foliage isExploded={exploded} />
-            <Ornaments isExploded={exploded} type="box" count={60} color={PALETTE.accent} scale={1.2} />
-            <Ornaments isExploded={exploded} type="sphere" count={80} color={PALETTE.gold} />
-            <Ornaments isExploded={exploded} type="rabbit" count={25} color={PALETTE.pink} scale={1.5} />
-          </group>
+                    {/* 后期特效 */}
+                    <EffectComposer>
+                        <Bloom luminanceThreshold={0.3} intensity={1.2} mipmapBlur radius={0.5} />
+                        <Noise opacity={0.05} />
+                        <Vignette offset={0.3} darkness={0.8} />
+                    </EffectComposer>
+                </Canvas>
+            );
+        };
 
-          {/* 3D 文字 */}
-          <Float speed={2} rotationIntensity={0.2} floatIntensity={0.5}>
-            <group position={[0, 6, 0]}>
-              <Text
-                font="https://fonts.gstatic.com/s/notosanssc/v26/k3kXo84MPvpLmixcA6dJ0FlqClw.woff"
-                fontSize={0.5}
-                color={PALETTE.gold}
-                anchorX="center"
-                anchorY="bottom"
-                outlineWidth={0.02}
-                outlineColor={PALETTE.pink}
-              >
-                小羊同学，圣诞节快乐！
-              </Text>
-              <Text position={[0, -0.6, 0]} fontSize={0.3} color="white" anchorX="center" anchorY="bottom">
-                MERRY CHRISTMAS
-              </Text>
-            </group>
-          </Float>
-
-          {/* 后期效果 */}
-          <EffectComposer disableNormalPass>
-            <Bloom luminanceThreshold={0.4} mipmapBlur intensity={1.8} radius={0.6} />
-            <Vignette eskil={false} offset={0.1} darkness={0.5} />
-          </EffectComposer>
-          
-          <Environment preset="night" blur={1} />
-        </>
-      );
-    };
-
-    // --- 启动应用 ---
-    const root = createRoot(document.getElementById('root'));
-    root.render(
-      <Canvas shadows dpr={[1, 2]} gl={{ antialias: false }}>
-        <Scene />
-      </Canvas>
-    );
-  </script>
+        createRoot(document.getElementById('root')).render(<App />);
+    </script>
 </body>
 </html>
