@@ -5,18 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>High-Fidelity Xmas Tree - Strawberry Edition</title>
     <style>
-        body { margin: 0; background: #010805; overflow: hidden; font-family: -apple-system, sans-serif; }
+        body { margin: 0; background: #010403; overflow: hidden; font-family: -apple-system, sans-serif; }
         #root { width: 100vw; height: 100vh; }
-        .overlay {
-            position: absolute; top: 8%; width: 100%; text-align: center;
-            pointer-events: none; z-index: 10;
-        }
-        .overlay h1 { color: #FFFACD; text-shadow: 0 0 20px rgba(255,250,205,0.8); margin: 0; font-size: 28px; min-height: 1.2em; }
+        .overlay { position: absolute; top: 10%; width: 100%; text-align: center; pointer-events: none; z-index: 10; }
+        .overlay h1 { color: #FFFACD; text-shadow: 0 0 20px rgba(255,250,205,0.8); margin: 0; font-size: 28px; }
         .overlay p { color: white; opacity: 0.6; letter-spacing: 5px; font-size: 12px; margin-top: 10px; }
-        .hint {
-            position: absolute; bottom: 30px; width: 100%; text-align: center;
-            color: #C1E1C1; opacity: 0.5; font-size: 11px; letter-spacing: 2px; pointer-events: none;
-        }
+        .hint { position: absolute; bottom: 30px; width: 100%; text-align: center; color: #C1E1C1; opacity: 0.5; font-size: 11px; letter-spacing: 2px; pointer-events: none; }
     </style>
 
     <script type="importmap">
@@ -36,38 +30,26 @@
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 </head>
 <body>
-    <div class="overlay">
-        <h1 id="greeting"></h1>
-        <p>MERRY CHRISTMAS</p>
-    </div>
+    <div class="overlay"><h1 id="greeting"></h1><p>MERRY CHRISTMAS</p></div>
     <div id="root"></div>
-    <div class="hint">点击触发粒子爆发 • 拖拽旋转视角</div>
+    <div class="hint">点击爆发 • 树顶是立体的草莓哦</div>
 
     <script type="text/babel" data-type="module">
+        /** @jsx React.createElement */
+        /** @jsxFrag React.Fragment */
         import React, { useState, useMemo, useRef, useEffect } from 'react';
         import { createRoot } from 'react-dom/client';
         import * as THREE from 'three';
         import { Canvas, useFrame } from '@react-three/fiber';
         import { Float, Stars, OrbitControls, PerspectiveCamera } from '@react-three/drei';
-        import { EffectComposer, Bloom, Vignette, Noise } from '@react-three/postprocessing';
+        import { EffectComposer, Bloom, Vignette } from '@react-three/postprocessing';
 
-        const PALETTE = {
-            trunk: '#3d2b1f',
-            leafDark: '#0a2910',
-            leafLight: '#165B33',
-            strawberryRed: '#ff0800',
-            strawberryLeaf: '#2d5a27',
-            gold: '#FFD700',
-            silver: '#E5E4E2',
-            xmasRed: '#D42426',
-            pink: '#FFB7B2',
-            bg: '#010805'
-        };
+        const PALETTE = { green: '#165B33', gold: '#FFD700', silver: '#E5E4E2', xmasRed: '#D42426', pink: '#FFB7B2', bg: '#010403' };
 
-        // 打字机
+        // 1. 打字机效果
         const Typewriter = () => {
             useEffect(() => {
-                const text = "小羊同学，圣诞节快乐！爱你一万零一遍";
+                const text = "小羊同学，圣诞节快乐！";
                 let i = 0;
                 const interval = setInterval(() => {
                     const el = document.getElementById('greeting');
@@ -80,8 +62,8 @@
             return null;
         };
 
-        // 高级草莓组件
-        const Strawberry = ({ position }) => {
+        // 2. 草莓组件 (果实 + 种子 + 叶子)
+        const Strawberry = () => {
             const seedCount = 60;
             const seeds = useMemo(() => {
                 const positions = [];
@@ -89,152 +71,135 @@
                     const phi = Math.acos(-1 + (2 * i) / seedCount);
                     const theta = Math.sqrt(seedCount * Math.PI) * phi;
                     positions.push([
-                        0.38 * Math.cos(theta) * Math.sin(phi),
-                        0.45 * Math.sin(theta) * Math.sin(phi) - 0.1,
-                        0.38 * Math.cos(phi)
+                        0.35 * Math.sin(phi) * Math.cos(theta),
+                        0.45 * Math.cos(phi),
+                        0.35 * Math.sin(phi) * Math.sin(theta)
                     ]);
                 }
                 return positions;
             }, []);
 
             return (
-                <group position={position}>
-                    {/* 草莓果实 */}
-                    <mesh castShadow>
-                        <sphereGeometry args={[0.5, 32, 32]} />
-                        <meshStandardMaterial color={PALETTE.strawberryRed} roughness={0.3} metalness={0.1} />
-                    </mesh>
-                    {/* 草莓种子 */}
-                    {seeds.map((pos, i) => (
-                        <mesh key={i} position={pos}>
-                            <sphereGeometry args={[0.015, 8, 8]} />
-                            <meshBasicMaterial color="#111" />
+                <Float speed={4} rotationIntensity={1} floatIntensity={2}>
+                    <group position={[0, 5.5, 0]} scale={1.2}>
+                        {/* 草莓果实 */}
+                        <mesh castShadow>
+                            <sphereGeometry args={[0.4, 20, 20]} />
+                            <meshStandardMaterial color="#FF0800" roughness={0.3} emissive="#400000" />
                         </mesh>
-                    ))}
-                    {/* 草莓叶子 */}
-                    <group position={[0, 0.4, 0]}>
-                        {[0, 1, 2, 3, 4, 5].map((i) => (
-                            <mesh key={i} rotation={[0, (i * Math.PI * 2) / 6, 0.8]}>
-                                <coneGeometry args={[0.15, 0.5, 3]} />
-                                <meshStandardMaterial color={PALETTE.strawberryLeaf} />
+                        {/* 草莓种子 */}
+                        {seeds.map((pos, i) => (
+                            <mesh key={i} position={pos}>
+                                <sphereGeometry args={[0.015, 4, 4]} />
+                                <meshBasicMaterial color="#1a0000" />
                             </mesh>
                         ))}
+                        {/* 草莓叶子 */}
+                        <group position={[0, 0.35, 0]}>
+                            {[0, 1, 2, 3, 4].map((i) => (
+                                <mesh key={i} rotation={[0, (i * Math.PI * 2) / 5, 0.4]}>
+                                    <capsuleGeometry args={[0.05, 0.25, 4, 8]} />
+                                    <meshStandardMaterial color="#228B22" />
+                                </mesh>
+                            ))}
+                        </group>
+                        <pointLight intensity={15} distance={5} color="#FF0800" />
                     </group>
-                    {/* 顶部光晕 */}
-                    <pointLight intensity={15} distance={5} color={PALETTE.strawberryRed} />
-                </group>
+                </Float>
             );
         };
 
-        // 层次感树体（多层松针效果）
-        const LayeredTree = ({ isExploded }) => {
-            const layers = 5;
-            const groupRef = useRef();
+        // 3. 松针层次感树体
+        const NeedleTree = ({ isExploded }) => {
+            const count = 6000;
+            const meshRef = useRef();
+            
+            const [positions, lineData] = useMemo(() => {
+                const posArr = new Float32Array(count * 3);
+                const baseArr = new Float32Array(count * 3);
+                const vels = new Float32Array(count * 3);
 
-            useFrame((state) => {
-                if (isExploded) {
-                    groupRef.current.position.y = THREE.MathUtils.lerp(groupRef.current.position.y, -20, 0.05);
-                    groupRef.current.scale.setScalar(THREE.MathUtils.lerp(groupRef.current.scale.x, 0, 0.05));
-                } else {
-                    groupRef.current.position.y = THREE.MathUtils.lerp(groupRef.current.position.y, -4, 0.1);
-                    groupRef.current.scale.setScalar(THREE.MathUtils.lerp(groupRef.current.scale.x, 1, 0.1));
+                for (let i = 0; i < count; i++) {
+                    const y = Math.pow(Math.random(), 1.1) * 10 - 5;
+                    const r = (5 - y) * 0.42;
+                    const angle = Math.random() * Math.PI * 2;
+                    
+                    const x = Math.cos(angle) * r;
+                    const z = Math.sin(angle) * r;
+
+                    posArr.set([x, y, z], i * 3);
+                    baseArr.set([x, y, z], i * 3);
+                    
+                    const v = new THREE.Vector3(x, y, z).normalize().multiplyScalar(Math.random() * 12 + 5);
+                    vels.set([v.x, v.y, v.z], i * 3);
                 }
+                return [posArr, { baseArr, vels }];
+            }, []);
+
+            useFrame((state, delta) => {
+                const attr = meshRef.current.geometry.attributes.position;
+                for (let i = 0; i < count; i++) {
+                    let x = attr.array[i*3], y = attr.array[i*3+1], z = attr.array[i*3+2];
+                    if (isExploded) {
+                        x += lineData.vels[i*3] * delta; 
+                        y += lineData.vels[i*3+1] * delta; 
+                        z += lineData.vels[i*3+2] * delta;
+                    } else {
+                        x = THREE.MathUtils.lerp(x, lineData.baseArr[i*3], 0.1);
+                        y = THREE.MathUtils.lerp(y, lineData.baseArr[i*3+1], 0.1);
+                        z = THREE.MathUtils.lerp(z, lineData.baseArr[i*3+2], 0.1);
+                    }
+                    attr.setXYZ(i, x, y, z);
+                }
+                attr.needsUpdate = true;
+                // 缓慢自转增加松针动态感
+                if(!isExploded) meshRef.current.rotation.y += 0.002;
             });
 
             return (
-                <group ref={groupRef} position={[0, -4, 0]}>
-                    {/* 树干 */}
-                    <mesh position={[0, 0.5, 0]}>
-                        <cylinderGeometry args={[0.3, 0.5, 2, 12]} />
-                        <meshStandardMaterial color={PALETTE.trunk} roughness={1} />
-                    </mesh>
-                    {/* 树层 */}
-                    {[...Array(layers)].map((_, i) => (
-                        <mesh key={i} position={[0, i * 1.8 + 1.5, 0]}>
-                            <coneGeometry args={[(layers - i) * 1.2, 2.5, 8]} />
-                            <meshStandardMaterial 
-                                color={i % 2 === 0 ? PALETTE.leafDark : PALETTE.leafLight} 
-                                flatShading={true}
-                                roughness={0.8}
-                            />
-                        </mesh>
-                    ))}
-                </group>
-            );
-        };
-
-        // 雪花
-        const Snow = ({ count = 1000 }) => {
-            const mesh = useRef();
-            const particles = useMemo(() => {
-                const pos = new Float32Array(count * 3);
-                for (let i = 0; i < count; i++) {
-                    pos.set([(Math.random()-0.5)*30, Math.random()*25, (Math.random()-0.5)*30], i * 3);
-                }
-                return pos;
-            }, [count]);
-
-            useFrame(() => {
-                const positions = mesh.current.geometry.attributes.position.array;
-                for (let i = 0; i < count; i++) {
-                    positions[i * 3 + 1] -= 0.03;
-                    if (positions[i * 3 + 1] < -5) positions[i * 3 + 1] = 20;
-                }
-                mesh.current.geometry.attributes.position.needsUpdate = true;
-            });
-
-            return (
-                <points ref={mesh}>
+                <points ref={meshRef}>
                     <bufferGeometry>
-                        <bufferAttribute attach="attributes-position" count={count} array={particles} itemSize={3} />
+                        <bufferAttribute attach="attributes-position" count={count} array={positions} itemSize={3} />
                     </bufferGeometry>
-                    <pointsMaterial size={0.06} color="#ffffff" transparent opacity={0.6} />
+                    {/* 使用自定义贴图点模拟松针的细长感 */}
+                    <pointsMaterial size={0.08} color="#165B33" transparent opacity={0.7} blending={THREE.AdditiveBlending} />
                 </points>
             );
         };
 
-        // 装饰球 (爆炸逻辑保留)
-        const Orbs = ({ isExploded }) => {
+        // 4. 金属球 (金银红多色)
+        const MetallicOrbs = ({ isExploded }) => {
             const meshRef = useRef();
             const dummy = new THREE.Object3D();
-            const count = 40;
-            const colors = [PALETTE.gold, PALETTE.silver, PALETTE.xmasRed, '#00A86B'];
+            const count = 45;
+            const colors = [PALETTE.gold, PALETTE.silver, PALETTE.xmasRed, '#FF69B4'];
 
-            const data = useMemo(() => {
-                return Array.from({ length: count }, () => {
-                    const y = Math.random() * 8 - 2;
-                    const r = (8 - y) * 0.35;
-                    const a = Math.random() * Math.PI * 2;
-                    const pos = new THREE.Vector3(Math.cos(a) * r, y, Math.sin(a) * r);
-                    return {
-                        base: pos.clone(),
-                        current: pos.clone(),
-                        vel: pos.clone().normalize().multiplyScalar(Math.random() * 12 + 8),
-                        color: new THREE.Color(colors[Math.floor(Math.random() * colors.length)])
-                    };
+            const orbs = useMemo(() => {
+                return Array.from({ length: count }, (_, i) => {
+                    const y = Math.pow(Math.random(), 0.9) * 9 - 4.5;
+                    const r = (5 - y) * 0.4;
+                    const angle = Math.random() * Math.PI * 2;
+                    const pos = new THREE.Vector3(Math.cos(angle) * r, y, Math.sin(angle) * r);
+                    return { base: pos.clone(), curr: pos.clone(), vel: pos.clone().normalize().multiplyScalar(15), col: new THREE.Color(colors[i%4]) };
                 });
             }, []);
 
             useFrame((state, delta) => {
-                data.forEach((o, i) => {
-                    if (isExploded) {
-                        o.current.addScaledVector(o.vel, delta);
-                    } else {
-                        o.current.lerp(o.base, 0.1);
-                    }
-                    dummy.position.copy(o.current);
-                    dummy.scale.setScalar(0.15);
+                orbs.forEach((o, i) => {
+                    if (isExploded) o.curr.addScaledVector(o.vel, delta);
+                    else o.curr.lerp(o.base, 0.1);
+                    dummy.position.copy(o.curr);
                     dummy.updateMatrix();
                     meshRef.current.setMatrixAt(i, dummy.matrix);
-                    meshRef.current.setColorAt(i, o.color);
+                    meshRef.current.setColorAt(i, o.col);
                 });
                 meshRef.current.instanceMatrix.needsUpdate = true;
                 meshRef.current.instanceColor.needsUpdate = true;
             });
 
             return (
-                <instancedMesh ref={meshRef} args={[new THREE.SphereGeometry(1, 24, 24), null, count]}>
-                    <meshStandardMaterial metalness={0.9} roughness={0.1} />
+                <instancedMesh ref={meshRef} args={[new THREE.SphereGeometry(0.14, 24, 24), null, count]}>
+                    <meshStandardMaterial metalness={1} roughness={0.1} />
                 </instancedMesh>
             );
         };
@@ -243,41 +208,31 @@
             const [exploded, setExploded] = useState(false);
 
             return (
-                <Canvas onClick={() => setExploded(!exploded)} shadows>
+                <Canvas onClick={() => setExploded(!exploded)}>
                     <Typewriter />
-                    <PerspectiveCamera makeDefault position={[0, 2, 15]} fov={45} />
-                    <OrbitControls enablePan={false} autoRotate={!exploded} autoRotateSpeed={0.5} minDistance={8} maxDistance={22} />
-                    
+                    <PerspectiveCamera makeDefault position={[0, 2, 16]} fov={45} />
+                    <OrbitControls enablePan={false} autoRotate={!exploded} />
                     <color attach="background" args={[PALETTE.bg]} />
-                    <ambientLight intensity={0.4} />
-                    <spotLight position={[10, 10, 10]} intensity={10} angle={0.3} penumbra={1} castShadow />
-                    <pointLight position={[-5, 5, -5]} intensity={5} color={PALETTE.pink} />
+                    
+                    <ambientLight intensity={0.6} />
+                    <pointLight position={[10, 10, 10]} intensity={20} color={PALETTE.gold} />
 
                     <Stars radius={100} depth={50} count={5000} factor={4} saturation={0} fade />
-                    <Snow count={1000} />
-
-                    {/* 主树体 */}
-                    <LayeredTree isExploded={exploded} />
                     
-                    {/* 装饰物 */}
-                    <Orbs isExploded={exploded} />
+                    <NeedleTree isExploded={exploded} />
+                    <MetallicOrbs isExploded={exploded} />
+                    <Strawberry />
 
-                    {/* 顶部漂浮草莓 */}
-                    <Float speed={2} rotationIntensity={1.5} floatIntensity={2}>
-                        <Strawberry position={[0, 6.5, 0]} />
-                    </Float>
-
-                    {/* 后期特效 */}
                     <EffectComposer>
-                        <Bloom luminanceThreshold={0.3} intensity={1.2} mipmapBlur radius={0.5} />
-                        <Noise opacity={0.05} />
-                        <Vignette offset={0.3} darkness={0.8} />
+                        <Bloom luminanceThreshold={0.2} mipmapBlur intensity={1.5} radius={0.4} />
+                        <Vignette darkness={1.2} />
                     </EffectComposer>
                 </Canvas>
             );
         };
 
-        createRoot(document.getElementById('root')).render(<App />);
+        const root = createRoot(document.getElementById('root'));
+        root.render(<App />);
     </script>
 </body>
 </html>
